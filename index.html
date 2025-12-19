@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <title>Compiler</title>
+</head>
+
+<body>
+  <textarea id="input" rows="10" cols="50">
+CONST x = 5;
+VAR y;
+BEGIN
+  x = y + 2
+END.
+  </textarea>
+  <button onclick="tokenizeInput()">Compilar</button>
+  <div id="tokens"></div>
+  <div id="ast"></div>
+  <div id="error"></div>
+
+  <script type="module">
+    import { tokenize } from './src/lexer/tokenize.js';
+    import { LexerError } from './src/lexer/lexer-error.js';
+    import { Parser } from './src/parser/parser.js';
+    import { ParserError } from './src/parser/parser-error.js';
+
+    window.tokenizeInput = function () {
+      const input = document.getElementById('input').value;
+      const tokensDiv = document.getElementById('tokens');
+      const astDiv = document.getElementById('ast');
+      const errorDiv = document.getElementById('error');
+
+      tokensDiv.innerHTML = '';
+      astDiv.innerHTML = '';
+      errorDiv.innerHTML = '';
+
+      if (!input.trim()) {
+        errorDiv.innerHTML = 'Ingresa algo para tokenizar.';
+        return;
+      }
+
+      try {
+        // Tokenización
+        const tokens = tokenize(input);
+        console.log('Tokens generados:', tokens);
+
+        // Mostrar tokens por línea
+        const lines = {};
+        tokens.forEach((token) => {
+          if (token.type === 'EOF') return; // ignorar EOF
+          if (!lines[token.line]) lines[token.line] = [];
+
+          // IDENTIFIER y NUMBER: mostrar tipo, los demás: valor
+          if (token.type === 'id' || token.type === 'num') {
+            lines[token.line].push(token.type);
+          } else {
+            lines[token.line].push(token.value);
+          }
+        });
+
+        let tokenString = '';
+        Object.keys(lines).sort((a, b) => a - b).forEach(lineNum => {
+          tokenString += lines[lineNum].join(' ') + '<br>';
+        });
+        tokensDiv.innerHTML = '<h3>Tokens generados:</h3><p>' + tokenString + '</p>';
+
+        // Parser
+        const parser = new Parser(tokens);
+        parser.errorHandler = new ParserError(); // instanciamos ParserError
+
+        parser.parse(); // Ejecuta el parseo
+
+        // Mostrar errores o estado del stack paso a paso
+        if (parser.errorMessage) {
+          errorDiv.innerHTML = '<h3>Error de análisis sintáctico:</h3><p>' + parser.errorMessage + '</p>';
+        } else {
+          astDiv.innerHTML = '<h3>Parseo completado sin errores.</h3>';
+          astDiv.innerHTML += '<pre>' + parser.stackStatus + '</pre>'; // <-- mostramos stackStatus
+        }
+
+      } catch (e) {
+        if (e instanceof LexerError) {
+          errorDiv.innerHTML = e.toString();
+        } else {
+          errorDiv.innerHTML = 'Error inesperado: ' + e.message;
+        }
+      }
+    };
+  </script>
+
+</body>
+
+</html>
